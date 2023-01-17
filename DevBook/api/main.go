@@ -11,7 +11,7 @@ import (
 func main() {
 	config.Carregar()
 
-	fmt.Println("start run application port :5000")
+	fmt.Println("Start run application port :5000")
 	r := router.Router()
 
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", config.Porta), r))
