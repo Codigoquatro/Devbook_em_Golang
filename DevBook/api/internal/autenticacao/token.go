@@ -2,8 +2,10 @@ package autenticacao
 
 import (
 	"api/internal/config"
+	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,8 +27,30 @@ func ValidarToken(r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(token)
-	return nil
+
+	if _, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		return nil
+	}
+
+	return errors.New("token invalido")
+}
+
+func ExtrairUsuarioID(r *http.Request) (uint64, error) {
+	tokenString := extrairToken(r)
+	token, err := jwt.Parse(tokenString, retornarChaveDeVerificacao)
+	if err != nil {
+		return 0, err
+	}
+
+	if permissoes, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		usuarioID, err := strconv.ParseUint(fmt.Sprintf("%.0f", permissoes["usuarioId"]), 10, 64)
+		if err != nil {
+			return 0, err
+		}
+		return usuarioID, nil
+	}
+
+	return 0, errors.New("token invalido")
 }
 
 func extrairToken(r *http.Request) string {
@@ -41,7 +65,7 @@ func extrairToken(r *http.Request) string {
 
 func retornarChaveDeVerificacao(token *jwt.Token) (interface{}, error) {
 	if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-		return nil, fmt.Errorf("Método de assinatura inesperado! %v", token.Header["alg"])
+		return nil, fmt.Errorf("método de assinatura inesperado %v", token.Header["alg"])
 	}
 
 	return config.SecretKey, nil
