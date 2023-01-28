@@ -1,16 +1,19 @@
 package controllers
 
 import (
+	"api/internal/autenticacao"
 	"api/internal/banco"
 	"api/internal/modelo"
 	"api/internal/repositorio"
 	"api/internal/respostas"
 	"encoding/json"
-	"github.com/gorilla/mux"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/gorilla/mux"
 )
 
 func CriarUsuario(w http.ResponseWriter, r *http.Request) {
@@ -94,6 +97,17 @@ func AtualizarUsuario(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	usuarioIDNoToken, err := autenticacao.ExtrairUsuarioID(r)
+	if err != nil {
+		respostas.Erro(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	if usuarioID != usuarioIDNoToken {
+		respostas.Erro(w, http.StatusForbidden, errors.New("usuário sem permissão para realizar essa ação"))
+		return
+	}
+
 	requestBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		respostas.Erro(w, http.StatusUnprocessableEntity, err)
@@ -132,6 +146,17 @@ func DeletarUsuario(w http.ResponseWriter, r *http.Request) {
 		respostas.Erro(w, http.StatusBadRequest, err)
 		return
 	}
+
+	usuarioIDNoToken, err := autenticacao.ExtrairUsuarioID(r)
+	if err != nil {
+		respostas.Erro(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	if usuarioID != usuarioIDNoToken {
+		respostas.Erro(w, http.StatusForbidden, errors.New("nao é possivel deletar esse usuario"))
+	}
+
 	db, err := banco.Con()
 	if err != nil {
 		respostas.Erro(w, http.StatusInternalServerError, err)
@@ -141,6 +166,41 @@ func DeletarUsuario(w http.ResponseWriter, r *http.Request) {
 
 	repo := repositorio.NovoRepositoUsuarios(db)
 	if err = repo.DeletarUsuario(usuarioID); err != nil {
+		respostas.Erro(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	respostas.JSON(w, http.StatusNoContent, nil)
+}
+
+func SeguirUsuario(w http.ResponseWriter, r *http.Request) {
+	seguidorID, err := autenticacao.ExtrairUsuarioID(r)
+	if err != nil {
+		respostas.Erro(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	parametros := mux.Vars(r)
+	usuarioID, err := strconv.ParseUint(parametros["usuarioId"], 10, 64)
+	if err != nil {
+		respostas.Erro(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if seguidorID == usuarioID {
+		respostas.Erro(w, http.StatusForbidden, errors.New("não é possivel realizar essa ação"))
+		return
+	}
+
+	db, err := banco.Con()
+	if err != nil {
+		respostas.Erro(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer db.Close()
+
+	repositorio := repositorio.NovoRepositoUsuarios(db)
+	if err = repositorio.Seguir(usuarioID, seguidorID); err != nil {
 		respostas.Erro(w, http.StatusInternalServerError, err)
 		return
 	}
