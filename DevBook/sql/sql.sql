@@ -1,6 +1,7 @@
 CREATE DATABASE IF NOT EXISTS codig267_golang;
 USE codig267_golang;
 DROP TABLE IF EXISTS usuarios;
+DROP TABLE IF EXISTS seguidores;
 
 CREATE TABLE usuarios(
     id int auto_increment primary key,
